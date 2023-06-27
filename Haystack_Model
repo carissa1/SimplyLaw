@@ -1,0 +1,653 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "gpuType": "T4",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    },
+    "accelerator": "GPU"
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/carissa1/SimplyLaw/blob/main/Haystack_Model\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# %%bash\n",
+        "# pip install --upgrade pip\n",
+        "# pip install haystack"
+      ],
+      "metadata": {
+        "id": "0tCTFP-XpbvH"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!pip install git+https://github.com/deepset-ai/haystack.git\n",
+        "!pip install urllib3==1.25.4"
+      ],
+      "metadata": {
+        "id": "CZEUdJ7JzA1F"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!pip install farm-haystack[colab]\n",
+        "!pip install 'farm-haystack[elasticsearch]'"
+      ],
+      "metadata": {
+        "id": "GCvhpesWwHQT"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!pip install farm-haystack"
+      ],
+      "metadata": {
+        "id": "IJuNHsx-wazD"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!pip install farm-haystack[inference]"
+      ],
+      "metadata": {
+        "id": "6HwWzOF34OIg"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "logging and drive"
+      ],
+      "metadata": {
+        "id": "wFmNHcjnLOPs"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import logging\n",
+        "\n",
+        "logging.basicConfig(format=\"%(levelname)s - %(name)s -  %(message)s\", level=logging.WARNING)\n",
+        "logging.getLogger(\"haystack\").setLevel(logging.INFO)"
+      ],
+      "metadata": {
+        "id": "ze8DLMBstzEC"
+      },
+      "execution_count": 4,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from google.colab import drive\n",
+        "drive.mount('/content/drive')"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "M92HVZFl9g-j",
+        "outputId": "ff509893-ec71-4c57-ceb0-dc36059c0c71"
+      },
+      "execution_count": 5,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Mounted at /content/drive\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "elastic search"
+      ],
+      "metadata": {
+        "id": "x4thURUTLS_E"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "! wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.9.2-linux-x86_64.tar.gz -q\n",
+        "! tar -xzf elasticsearch-7.9.2-linux-x86_64.tar.gz\n",
+        "! chown -R daemon:daemon elasticsearch-7.9.2\n",
+        "\n",
+        "import os\n",
+        "from subprocess import Popen, PIPE, STDOUT\n",
+        "es_server = Popen(['elasticsearch-7.9.2/bin/elasticsearch'],\n",
+        "                   stdout=PIPE, stderr=STDOUT,\n",
+        "                   preexec_fn=lambda: os.setuid(1)  # as daemon\n",
+        "                  )\n",
+        "# wait until ES has started\n",
+        "! sleep 5"
+      ],
+      "metadata": {
+        "id": "S9vN2LQeMwz8"
+      },
+      "execution_count": 6,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from haystack.document_stores.elasticsearch import ElasticsearchDocumentStore\n",
+        "document_store = ElasticsearchDocumentStore(host=\"localhost\", username=\"\", password=\"\", index=\"document\")"
+      ],
+      "metadata": {
+        "id": "dIaem32YPYON",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "612fe6cb-0dd0-4042-af00-b4e50e2a6370"
+      },
+      "execution_count": 7,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "INFO:haystack.telemetry:Haystack sends anonymous usage data to understand the actual usage and steer dev efforts towards features that are most meaningful to users. You can opt-out at anytime by manually setting the environment variable HAYSTACK_TELEMETRY_ENABLED as described for different operating systems in the [documentation page](https://docs.haystack.deepset.ai/docs/telemetry#how-can-i-opt-out). More information at [Telemetry](https://docs.haystack.deepset.ai/docs/telemetry).\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "json and training dataset"
+      ],
+      "metadata": {
+        "id": "pZx9CsjiLULL"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import json"
+      ],
+      "metadata": {
+        "id": "VnkJCRjDpTb3"
+      },
+      "execution_count": 8,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Read the contents of the JSON file\n",
+        "with open(\"/content/drive/MyDrive/Federal_Laws.json\", 'r', encoding='utf-8-sig') as f:\n",
+        "    file_contents = f.read()\n",
+        "\n",
+        "train_data = json.loads(file_contents)"
+      ],
+      "metadata": {
+        "id": "E9QRzZ2NsRua"
+      },
+      "execution_count": 9,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "train_data"
+      ],
+      "metadata": {
+        "id": "pIQ1klCTvzC7"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Reader and document_store_TRAIN"
+      ],
+      "metadata": {
+        "id": "mJFHNhr1Ldmw"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from haystack.nodes import FARMReader\n",
+        "\n",
+        "reader = FARMReader(model_name_or_path=\"deepset/roberta-base-squad2\", use_gpu=True)"
+      ],
+      "metadata": {
+        "id": "p7HtYGdgNe5e"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from haystack.document_stores.memory import InMemoryDocumentStore\n",
+        "document_store_TRAIN = InMemoryDocumentStore()"
+      ],
+      "metadata": {
+        "id": "9qeWyqEc414p",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "2f6645dd-0feb-4c69-b260-ee1469ae37ae"
+      },
+      "execution_count": 12,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "INFO:haystack.modeling.utils:Using devices: CUDA:0 - Number of GPUs: 1\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Convert the JSON data into Haystack format and add it to the document store\n",
+        "for item in train_data[\"data\"]:\n",
+        "    for paragraph in item[\"paragraphs\"]:\n",
+        "        context = paragraph[\"context\"]\n",
+        "        document_store_TRAIN.write_documents([{\"content\": context, \"meta\": {\"title\": \"Federal Laws\"}}])"
+      ],
+      "metadata": {
+        "id": "NqZgjUYY5Cja"
+      },
+      "execution_count": 13,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Train reader"
+      ],
+      "metadata": {
+        "id": "vkS9JHVEMAC2"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Train the reader\n",
+        "reader.train(data_dir=\"/content/drive/MyDrive\", train_filename=\"Federal_Laws.json\", n_epochs=5, use_gpu=True)\n",
+        "# reader.train_from_documents(document_store=document_storeExtra, n_epochs=2)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Lkj_xCGZw0x2",
+        "outputId": "65e482a2-f1a5-4503-a197-b14e3c975062"
+      },
+      "execution_count": 14,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "INFO:haystack.modeling.utils:Using devices: CUDA:0 - Number of GPUs: 1\n",
+            "INFO:haystack.modeling.data_handler.data_silo:\n",
+            "Loading data into the data silo ... \n",
+            "              ______\n",
+            "               |o  |   !\n",
+            "   __          |:`_|---'-.\n",
+            "  |__|______.-/ _ \\-----.|\n",
+            " (o)(o)------'\\ _ /     ( )\n",
+            " \n",
+            "INFO:haystack.modeling.data_handler.data_silo:LOADING TRAIN DATA\n",
+            "INFO:haystack.modeling.data_handler.data_silo:==================\n",
+            "INFO:haystack.modeling.data_handler.data_silo:Loading train set from: /content/drive/MyDrive/Federal_Laws.json \n",
+            "Preprocessing dataset: 100%|██████████| 1/1 [00:00<00:00, 12.65 Dicts/s]\n",
+            "INFO:haystack.modeling.data_handler.data_silo:\n",
+            "INFO:haystack.modeling.data_handler.data_silo:LOADING DEV DATA\n",
+            "INFO:haystack.modeling.data_handler.data_silo:=================\n",
+            "INFO:haystack.modeling.data_handler.data_silo:No dev set is being loaded\n",
+            "INFO:haystack.modeling.data_handler.data_silo:\n",
+            "INFO:haystack.modeling.data_handler.data_silo:LOADING TEST DATA\n",
+            "INFO:haystack.modeling.data_handler.data_silo:=================\n",
+            "INFO:haystack.modeling.data_handler.data_silo:No test set is being loaded\n",
+            "INFO:haystack.modeling.data_handler.data_silo:\n",
+            "INFO:haystack.modeling.data_handler.data_silo:DATASETS SUMMARY\n",
+            "INFO:haystack.modeling.data_handler.data_silo:================\n",
+            "INFO:haystack.modeling.data_handler.data_silo:Examples in train: 126\n",
+            "INFO:haystack.modeling.data_handler.data_silo:Examples in dev  : 0\n",
+            "INFO:haystack.modeling.data_handler.data_silo:Examples in test : 0\n",
+            "INFO:haystack.modeling.data_handler.data_silo:Total examples   : 126\n",
+            "INFO:haystack.modeling.data_handler.data_silo:\n",
+            "INFO:haystack.modeling.model.optimization:Loading optimizer 'AdamW': {'correct_bias': False, 'weight_decay': 0.01, 'lr': 1e-05}\n",
+            "INFO:haystack.modeling.model.optimization:Using scheduler 'get_linear_schedule_with_warmup'\n",
+            "INFO:haystack.modeling.model.optimization:Loading schedule 'get_linear_schedule_with_warmup': '{'num_training_steps': 65, 'num_warmup_steps': 13}'\n",
+            "INFO:haystack.modeling.training.base:No train checkpoints found. Starting a new training ...\n",
+            "Train epoch 0/4 (Cur. train loss: 0.9493): 100%|██████████| 13/13 [00:08<00:00,  1.57it/s]\n",
+            "Train epoch 1/4 (Cur. train loss: 0.5539): 100%|██████████| 13/13 [00:05<00:00,  2.49it/s]\n",
+            "Train epoch 2/4 (Cur. train loss: 0.6843): 100%|██████████| 13/13 [00:05<00:00,  2.50it/s]\n",
+            "Train epoch 3/4 (Cur. train loss: 0.3896): 100%|██████████| 13/13 [00:05<00:00,  2.50it/s]\n",
+            "Train epoch 4/4 (Cur. train loss: 0.2437): 100%|██████████| 13/13 [00:05<00:00,  2.48it/s]\n",
+            "INFO:haystack.nodes.reader.farm:Saving reader model to saved_models/Roberta\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Save the trained Reader model\n",
+        "reader.save(directory=\"/content/drive/MyDrive/reader_model\")"
+      ],
+      "metadata": {
+        "id": "mK3Ul9Cd2Jwe",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "e37b3543-4d94-4e9c-e51a-805c941bc2c2"
+      },
+      "execution_count": 15,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "INFO:haystack.nodes.reader.farm:Saving reader model to /content/drive/MyDrive/reader_model\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# from haystack.utils.early_stopping import EarlyStopping\n",
+        "\n",
+        "# early_stopping = EarlyStopping(\n",
+        "#     metric='top_n_accuracy',\n",
+        "#     save_dir='early_stop_model',\n",
+        "#     mode='max',\n",
+        "#     patience=10,\n",
+        "#     min_delta=0.001,\n",
+        "#     min_evals=0,\n",
+        "# )\n",
+        "# reader = FARMReader(model_name_or_path='deepset/roberta-base-squad2', use_gpu=True)\n",
+        "# reader.train(\n",
+        "#     data_dir='/content/drive/MyDrive',\n",
+        "#     train_filename='Health_Law.json',\n",
+        "#     use_gpu=True,\n",
+        "#     early_stopping=early_stopping\n",
+        "# )"
+      ],
+      "metadata": {
+        "id": "hioHSsXsMDxd"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "BM25 document_store and retriever"
+      ],
+      "metadata": {
+        "id": "c4DotV80L91K"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from haystack.document_stores import InMemoryDocumentStore\n",
+        "\n",
+        "document_store_BM25 = InMemoryDocumentStore(use_bm25=True)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "KBxg2TP5BDg4",
+        "outputId": "ffc2389e-40fa-4599-e6f6-345d9975d71a"
+      },
+      "execution_count": 16,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "INFO:haystack.modeling.utils:Using devices: CUDA:0 - Number of GPUs: 1\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from haystack.nodes import BM25Retriever\n",
+        "\n",
+        "retriever = BM25Retriever(document_store=document_store_BM25)"
+      ],
+      "metadata": {
+        "id": "6uYwsnvUmzdM"
+      },
+      "execution_count": 17,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# !pip install 'farm-haystack[faiss]'"
+      ],
+      "metadata": {
+        "id": "k4Z914DjCAec"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# from haystack.document_stores import FAISSDocumentStore\n",
+        "# # from haystack import TfidfRetriever\n",
+        "\n",
+        "# # Initialize the document store\n",
+        "# document_store_FAISS = FAISSDocumentStore()"
+      ],
+      "metadata": {
+        "id": "ImxpK4MUByQU"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Second Dataset write to BM25 document"
+      ],
+      "metadata": {
+        "id": "RGQ6d21PMbLb"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from haystack import Document\n",
+        "\n",
+        "# Step 2: Read the text file\n",
+        "file_path = \"/content/drive/MyDrive/FEDERAL_LAWS.txt\"\n",
+        "with open(file_path, \"r\") as file:\n",
+        "    text = file.read()\n",
+        "\n",
+        "# Step 3: Create a Document object\n",
+        "document = Document(content=text, meta={\"file_path\": file_path})\n",
+        "\n",
+        "# Step 4: Write the document to the document store\n",
+        "document_store_BM25.write_documents([document])"
+      ],
+      "metadata": {
+        "id": "khnvN-XImz3k",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "050f6b4e-78a2-4a64-c003-02ae9e367948"
+      },
+      "execution_count": 18,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "Updating BM25 representation...: 100%|██████████| 1/1 [00:00<00:00, 75.38 docs/s]\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Pipeline"
+      ],
+      "metadata": {
+        "id": "4deS9bVCMiHB"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from haystack.pipelines import ExtractiveQAPipeline\n",
+        "\n",
+        "# Initialize the ExtractiveQAPipeline with the trained Reader and Elasticsearch Document Store\n",
+        "retriever = BM25Retriever(document_store=document_store_BM25)\n",
+        "pipe = ExtractiveQAPipeline(reader, retriever)"
+      ],
+      "metadata": {
+        "id": "aCJClh-YmuUt"
+      },
+      "execution_count": 19,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "question = input(\"What is your question? \")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "CoORh6JuNPAp",
+        "outputId": "4d9dbd0b-3e5e-483e-a968-316eae74c865"
+      },
+      "execution_count": 20,
+      "outputs": [
+        {
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "What is your question? What laws prevent anticompetitive practices?\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "prediction = pipe.run(query=question, debug=True)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "QGHMyTc7tYLo",
+        "outputId": "874bf58e-3e9e-4356-8d06-ccaaec324ba9"
+      },
+      "execution_count": 21,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "Inferencing Samples: 100%|██████████| 8/8 [00:05<00:00,  1.47 Batches/s]\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from pprint import pprint\n",
+        "\n",
+        "pprint(prediction)"
+      ],
+      "metadata": {
+        "id": "nEnEsUX6uRRC"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from haystack.utils import print_answers\n",
+        "\n",
+        "print_answers(\n",
+        "    prediction,\n",
+        "    details=\"all\" ## Choose from `minimum`, `medium`, and `all`\n",
+        ")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "g7dQlrXIuTmD",
+        "outputId": "9f4643e3-9593-41c6-b68f-a86172fdb602"
+      },
+      "execution_count": 34,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "'Query: What laws prevent anticompetitive practices?'\n",
+            "'Answers:'\n",
+            "[   <Answer {'answer': 'Antitrust Act', 'type': 'extractive', 'score': 0.760588526725769, 'context': 'rograms and employment, promoting equal access and opportunity.\\nLaw: Antitrust Act Description: Regulates and prevents anticompetitive practices, such', 'offsets_in_document': [{'start': 16322, 'end': 16335}], 'offsets_in_context': [{'start': 69, 'end': 82}], 'document_ids': ['1bcc052341e82f63661ad522beb6105e'], 'meta': {'file_path': '/content/drive/MyDrive/FEDERAL_LAWS.txt'}}>,\n",
+            "    <Answer {'answer': 'Antitrust Laws', 'type': 'extractive', 'score': 0.7019033432006836, 'context': 'ong U.S. agencies to prevent and respond to terrorism threats.\\nLaw: Antitrust Laws (Sherman Act, Clayton Act) Description: Regulates and prohibits ant', 'offsets_in_document': [{'start': 48182, 'end': 48196}], 'offsets_in_context': [{'start': 68, 'end': 82}], 'document_ids': ['1bcc052341e82f63661ad522beb6105e'], 'meta': {'file_path': '/content/drive/MyDrive/FEDERAL_LAWS.txt'}}>,\n",
+            "    <Answer {'answer': 'Antitrust Act', 'type': 'extractive', 'score': 0.6991230249404907, 'context': 'ployment, public accommodations, and federally funded programs.\\nLaw: Antitrust Act Description: Regulates and prevents anticompetitive practices and m', 'offsets_in_document': [{'start': 171991, 'end': 172004}], 'offsets_in_context': [{'start': 69, 'end': 82}], 'document_ids': ['1bcc052341e82f63661ad522beb6105e'], 'meta': {'file_path': '/content/drive/MyDrive/FEDERAL_LAWS.txt'}}>]\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
